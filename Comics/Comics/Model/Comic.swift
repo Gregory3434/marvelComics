@@ -20,5 +20,4 @@ struct Comic: Identifiable, Codable {
     var title: String
     var description: String?
     var thumbnail: [String: String]?
-//    var images: [String: String]?
 }

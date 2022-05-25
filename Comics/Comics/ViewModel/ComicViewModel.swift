@@ -12,6 +12,8 @@ import CryptoKit
 class ComicViewModel: ObservableObject {
     private let publicKey = "19d60c29ca60667d94ac8a639a107959"
     private let privateKey = "2bac11b12f33596e54ba4fd96f360973a69eab71"
+    private let marvelHost = "gateway.marvel.com"
+    private let comicsPath = "/v1/public/comics"
     
     @Published var searchQuery = ""
     var searchCancellable: AnyCancellable? = nil
@@ -35,25 +37,17 @@ class ComicViewModel: ObservableObject {
     }
     
     func fetchComics() {
-        let ts = String(Date().timeIntervalSince1970)
-        let hash = MD5(string: "\(ts)\(privateKey)\(publicKey)")
-        let url = "https://gateway.marvel.com/v1/public/comics?limit=20&offset=\(offset)&ts=\(ts)&apikey=\(publicKey)&hash=\(hash)"
-        
-        launchQuery(url, byTitle: false)
+        let components = buildComicsURL()
+        launchQuery(components.url!, byTitle: false)
     }
     
     func fetchComicsByTitle(_ title: String) {
-        let ts = String(Date().timeIntervalSince1970)
-        let hash = MD5(string: "\(ts)\(privateKey)\(publicKey)")
-        let originalQuery = title.replacingOccurrences(of: " ", with: "%20")
-        let url = "https://gateway.marvel.com/v1/public/comics?titleStartsWith=\(originalQuery)&ts=\(ts)&apikey=\(publicKey)&hash=\(hash)"
-        
-        launchQuery(url, byTitle: false)
+        let components = buildComicsURL(byTitle: title)
+        launchQuery(components.url!, byTitle: true)
     }
     
-    private func launchQuery(_ url: String, byTitle: Bool) {
+    private func launchQuery(_ url: URL, byTitle: Bool) {
         let session = URLSession(configuration: .default)
-        let url = URL(string: url)!
         
         let task = session.dataTask(with: url) { data, response, error in
             guard let data = data else {
@@ -83,5 +77,32 @@ class ComicViewModel: ObservableObject {
         return digest.map {
             String(format: "%02hhx", $0)
         }.joined()
+    }
+    
+    func buildComicsURL(byTitle: String? = nil) -> URLComponents {
+        let ts = String(Date().timeIntervalSince1970)
+        let hash = MD5(string: "\(ts)\(privateKey)\(publicKey)")
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = marvelHost
+        components.path = comicsPath
+        if byTitle == nil {
+            components.queryItems = [
+                URLQueryItem(name: "limit", value: "20"),
+                URLQueryItem(name: "offset", value: "\(offset)"),
+                URLQueryItem(name: "ts", value: "\(ts)"),
+                URLQueryItem(name: "apikey", value: "\(publicKey)"),
+                URLQueryItem(name: "hash", value: "\(hash)")
+            ]
+        } else {
+            components.queryItems = [
+                URLQueryItem(name: "titleStartsWith", value: byTitle),
+                URLQueryItem(name: "ts", value: "\(ts)"),
+                URLQueryItem(name: "apikey", value: "\(publicKey)"),
+                URLQueryItem(name: "hash", value: "\(hash)")
+            ]
+        }
+        
+        return components
     }
 }
